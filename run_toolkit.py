@@ -4,6 +4,7 @@ from toolkit.importer.argument_parser import StringOption, BooleanOption, \
     application_settings_from_args
 
 from toolkit.logger import logger
+from toolkit.scripts.render_pose_figure import render_pose_figure
 from toolkit.scripts.ap_results import ap_results
 from toolkit.scripts.colorize_heatmaps import colorize_heatmaps
 from toolkit.scripts.frame_type_significance import frame_type_significance
@@ -53,6 +54,8 @@ if __name__ == '__main__':
     call_script("colorize_heatmaps", colorize_heatmaps)                       # h) Colorize Heatmaps
     call_script("generate_heatmaps_similarity", generate_heatmaps_similarity) # i) Generate similarity
     call_script("quantized_heatmaps", quantized_heatmaps)                     # j) Quantized Heatmap
+
+#    call_script("render_pose_figure", render_pose_figure)                     # k) Render COCO model for a single frame (Fig. 1)
 
     logger.info(f"Done. Check '{app_settings.output_folder()}' and results folders.")
 

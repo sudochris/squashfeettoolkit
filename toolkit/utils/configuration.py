@@ -8,7 +8,7 @@ from collections import namedtuple
 from toolkit.utils.timer import timed
 
 Algorithms = namedtuple("Algorithms", ["algorithm_name", "algorithm_type", "folder", "keypoint_file_pattern", "numpy_file", "full_keypoint_file_pattern"])
-Dataset = namedtuple("Dataset", ["dataset_name", "annotation_file", "annotation_numpy", "events_file", "calibration_file", "court_file", "num_frames", "video_file", "result_folder", "npz_folder", "algorithms"])
+Dataset = namedtuple("Dataset", ["dataset_name", "court_image_file", "annotation_file", "annotation_numpy", "events_file", "calibration_file", "court_file", "num_frames", "video_file", "result_folder", "npz_folder", "algorithms"])
 
 class AlgorithmType(Enum):
     UNKNOWN = "Unknown",
@@ -58,6 +58,7 @@ def load_datasets(configuration_file):
 
             dataset = Dataset(
                 dataset_name=dj["name"],
+                court_image_file=path.join(folder_prefix, dj["files"]["court_image_file"]),
                 annotation_file=path.join(folder_prefix, dj["files"]["annotation_file"]),
                 annotation_numpy=path.join(folder_prefix, dj["files"]["annotation_numpy"]),
                 events_file=path.join(folder_prefix, dj["files"]["events_file"]),
