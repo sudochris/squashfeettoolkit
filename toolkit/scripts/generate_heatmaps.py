@@ -22,8 +22,13 @@ class AccumulatorType(IntEnum):
     ANNOTATION = 0,
     DETECTIONS = 1
 
+def is_in_bounds(value, low=0.0, high=1.0):
+    return low <= value <= high
 
-def generate_heatmaps_for_dataset(dataset):
+def is_in_court_bounds(world_point):
+    return is_in_bounds(world_point[0], 0.0, 6.4) and is_in_bounds(world_point[2], 0.0, 9.75)
+
+def generate_heatmaps_for_dataset(dataset, with_postprocessing: bool):
 
     dataset_name = dataset.dataset_name
     annotation_data = load_annotation_data(dataset)
@@ -63,12 +68,19 @@ def generate_heatmaps_for_dataset(dataset):
             f_pos, a_pid, a_mid, a_uv, a_c, a_uid = m_utils.unpack_marker(a_marker)
             if a_mid in annotation_mids:
                 a_px = a_uv * (I_COLS, I_ROWS)
-                camera_accumulators[AccumulatorType.ANNOTATION].add_point(int(a_px[1]), int(a_px[0]))
-
                 a_wp = calibration.estimate_from_pixel(calibration_data, [a_px[0] + 200, a_px[1]])
-                x_hm = int(np.interp(a_wp[0], [0, 6.4], [0, 640], 0, 640))
-                z_hm = int(np.interp(a_wp[2], [0, 9.75], [0, 975], 0, 975))
-                top_down_accumulators[AccumulatorType.ANNOTATION].add_point(z_hm, x_hm)
+
+                add_point_to_accumulator = True
+                if with_postprocessing and not is_in_court_bounds(a_wp):
+                    add_point_to_accumulator = False
+
+                if add_point_to_accumulator:
+                    camera_accumulators[AccumulatorType.ANNOTATION].add_point(int(a_px[1]), int(a_px[0]))
+
+                    a_wp = calibration.estimate_from_pixel(calibration_data, [a_px[0] + 200, a_px[1]])
+                    x_hm = int(np.interp(a_wp[0], [0, 6.4], [0, 640], 0, 640))
+                    z_hm = int(np.interp(a_wp[2], [0, 9.75], [0, 975], 0, 975))
+                    top_down_accumulators[AccumulatorType.ANNOTATION].add_point(z_hm, x_hm)
 
 
     for algorithm in dataset.algorithms:
@@ -89,58 +101,68 @@ def generate_heatmaps_for_dataset(dataset):
                 f_pos, d_pid, d_mid, d_uv, d_c, d_uid = m_utils.unpack_marker(d_marker)
                 if d_mid in mids[algorithm_type]:
                     d_px = d_uv * (I_COLS, I_ROWS)
-                    camera_accumulators[AccumulatorType.DETECTIONS][algorithm_type].add_point(int(d_px[1]), int(d_px[0]))
-
                     d_wp = calibration.estimate_from_pixel(calibration_data, [d_px[0] + 200, d_px[1]])
-                    x_hm = int(np.interp(d_wp[0], [0, 6.4], [0, 640], 0, 640))
-                    z_hm = int(np.interp(d_wp[2], [0, 9.75], [0, 975], 0, 975))
-                    top_down_accumulators[AccumulatorType.DETECTIONS][algorithm_type].add_point(z_hm, x_hm)
+
+                    add_point_to_accumulator = True
+                    if with_postprocessing and not is_in_court_bounds(d_wp):
+                        add_point_to_accumulator = False
+
+                    if add_point_to_accumulator:
+                        camera_accumulators[AccumulatorType.DETECTIONS][algorithm_type].add_point(int(d_px[1]), int(d_px[0]))
+
+                        x_hm = int(np.interp(d_wp[0], [0, 6.4], [0, 640], 0, 640))
+                        z_hm = int(np.interp(d_wp[2], [0, 9.75], [0, 975], 0, 975))
+                        top_down_accumulators[AccumulatorType.DETECTIONS][algorithm_type].add_point(z_hm, x_hm)
 
     return camera_accumulators, top_down_accumulators
 
-@timed
-def generate_heatmaps(app_settings:ApplicationSettings, datasets):
+def get_generate_heatmaps_function(with_postprocessing: bool):
+    @timed
+    def generate_heatmaps(app_settings:ApplicationSettings, datasets):
 
-    def transform_and_save(dataset_name, view_type, algorithm_name, accumulator):
-        def transform_accumulator_to_heatmap(accumulator):
-            heatmap = transformations.logarithmic(accumulator)
-            return heatmap
+        def transform_and_save(dataset_name, view_type, algorithm_name, accumulator):
+            def transform_accumulator_to_heatmap(accumulator):
+                heatmap = transformations.logarithmic(accumulator)
+                return heatmap
 
-        def save_heatmap(dataset_name, view_type, algorithm_name, image):
-            file_name = f"{dataset_name}_{view_type}_{algorithm_name}.png"
-            heatmaps_folder = file_utils.join_folders([app_settings.output_folder(), "gray_heatmaps"])
-            file_utils.make_dirs(heatmaps_folder)
+            def save_heatmap(dataset_name, view_type, algorithm_name, image):
+                file_name = "{}_{}_{}{}.png".format(dataset_name, view_type, algorithm_name, "_FILTERED" if with_postprocessing else "")
+                # file_name = f"{dataset_name}_{view_type}_{algorithm_name}.png"
+                heatmaps_folder = file_utils.join_folders([app_settings.output_folder(), "gray_heatmaps"])
+                file_utils.make_dirs(heatmaps_folder)
 
-            file_path = file_utils.join_folders([heatmaps_folder, file_name])
-            if not file_utils.exists(file_path):
-                cv.imwrite(file_path, image)
-            else:
-                logger.debug(f"Skipping {file_path}. File already exists")
+                file_path = file_utils.join_folders([heatmaps_folder, file_name])
+                if not file_utils.exists(file_path):
+                    cv.imwrite(file_path, image)
+                else:
+                    logger.debug(f"Skipping {file_path}. File already exists")
 
-        heatmap = transform_accumulator_to_heatmap(accumulator)
-        save_heatmap(dataset_name, view_type, algorithm_name, heatmap)
+            heatmap = transform_accumulator_to_heatmap(accumulator)
+            save_heatmap(dataset_name, view_type, algorithm_name, heatmap)
 
-    for dataset in datasets:
-        dataset_name = dataset.dataset_name
+        for dataset in datasets:
+            dataset_name = dataset.dataset_name
 
-        camera_accumulators, top_down_accumulators = generate_heatmaps_for_dataset(dataset)
+            camera_accumulators, top_down_accumulators = generate_heatmaps_for_dataset(dataset, with_postprocessing)
 
-        camera_accumulator_annotation = camera_accumulators[AccumulatorType.ANNOTATION]
-        camera_accumulator_detections = camera_accumulators[AccumulatorType.DETECTIONS]
+            camera_accumulator_annotation = camera_accumulators[AccumulatorType.ANNOTATION]
+            camera_accumulator_detections = camera_accumulators[AccumulatorType.DETECTIONS]
 
 
-        top_down_accumulator_annotation = top_down_accumulators[AccumulatorType.ANNOTATION]
-        top_down_accumulator_detections = top_down_accumulators[AccumulatorType.DETECTIONS]
+            top_down_accumulator_annotation = top_down_accumulators[AccumulatorType.ANNOTATION]
+            top_down_accumulator_detections = top_down_accumulators[AccumulatorType.DETECTIONS]
 
-        transform_and_save(dataset_name, "camera", "annotation", camera_accumulator_annotation)
-        transform_and_save(dataset_name, "topdown", "annotation", top_down_accumulator_annotation)
+            transform_and_save(dataset_name, "camera", "annotation", camera_accumulator_annotation)
+            transform_and_save(dataset_name, "topdown", "annotation", top_down_accumulator_annotation)
 
-        for algorithm_type in AlgorithmType:
-            if algorithm_type == AlgorithmType.UNKNOWN:
-                continue
+            for algorithm_type in AlgorithmType:
+                if algorithm_type == AlgorithmType.UNKNOWN:
+                    continue
 
-            camera_accumulator_detection = camera_accumulator_detections[algorithm_type]
-            top_down_accumulator_detection = top_down_accumulator_detections[algorithm_type]
+                camera_accumulator_detection = camera_accumulator_detections[algorithm_type]
+                top_down_accumulator_detection = top_down_accumulator_detections[algorithm_type]
 
-            transform_and_save(dataset_name, "camera", algorithm_type, camera_accumulator_detection)
-            transform_and_save(dataset_name, "topdown", algorithm_type, top_down_accumulator_detection)
+                transform_and_save(dataset_name, "camera", algorithm_type, camera_accumulator_detection)
+                transform_and_save(dataset_name, "topdown", algorithm_type, top_down_accumulator_detection)
+
+    return generate_heatmaps
