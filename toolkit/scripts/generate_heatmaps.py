@@ -15,7 +15,7 @@ from toolkit.utils.configuration import AlgorithmType
 from toolkit.utils import marker as m_utils
 from toolkit.utils import file as file_utils
 import toolkit.heatmap.calibration as calibration
-from toolkit.utils.timer import timed
+from toolkit.utils.timer import timed, Timer
 
 
 class AccumulatorType(IntEnum):
@@ -59,6 +59,8 @@ def generate_heatmaps_for_dataset(dataset, with_postprocessing: bool):
     calibration_data = calibration.load_from_file(dataset.calibration_file)
 
     logger.info(f"[{dataset_name}] Processing annotation data")
+    timer = Timer()
+    added_markers = 0
     for frame_pos in range(int(num_frames)):
         a_markers_in_frame = m_utils.filter_markers_by_frame(annotation_data.markers, frame_pos)
         a_markers_by_location = m_utils.filter_markers_by_location(a_markers_in_frame)
@@ -75,13 +77,15 @@ def generate_heatmaps_for_dataset(dataset, with_postprocessing: bool):
                     add_point_to_accumulator = False
 
                 if add_point_to_accumulator:
+                    added_markers += 1
                     camera_accumulators[AccumulatorType.ANNOTATION].add_point(int(a_px[1]), int(a_px[0]))
 
                     a_wp = calibration.estimate_from_pixel(calibration_data, [a_px[0] + 200, a_px[1]])
                     x_hm = int(np.interp(a_wp[0], [0, 6.4], [0, 640], 0, 640))
                     z_hm = int(np.interp(a_wp[2], [0, 9.75], [0, 975], 0, 975))
                     top_down_accumulators[AccumulatorType.ANNOTATION].add_point(z_hm, x_hm)
-
+    time = timer.stop()
+    logger.debug("\t\t\t===> {:5.3f}s for {} markers in {} frames ({:5.3f} m/s)".format(time, added_markers, int(num_frames), added_markers / time))
 
     for algorithm in dataset.algorithms:
         algorithm_type = algorithm.algorithm_type
@@ -93,6 +97,8 @@ def generate_heatmaps_for_dataset(dataset, with_postprocessing: bool):
 
         detection_data = load_detection_data(dataset, algorithm)    # Load detection data
 
+        timer = Timer()
+        added_markers = 0
         for frame_pos in range(int(num_frames)):
             d_markers_in_frame = m_utils.filter_markers_by_frame(detection_data.markers, frame_pos)
             d_markers_by_location = m_utils.filter_markers_by_location(d_markers_in_frame)
@@ -114,12 +120,15 @@ def generate_heatmaps_for_dataset(dataset, with_postprocessing: bool):
                         z_hm = int(np.interp(d_wp[2], [0, 9.75], [0, 975], 0, 975))
                         top_down_accumulators[AccumulatorType.DETECTIONS][algorithm_type].add_point(z_hm, x_hm)
 
+                        added_markers += 1
+        time = timer.stop()
+        logger.debug("\t\t\t===> {:5.3f}s for {} markers in {} frames ({:5.3f} m/s)".format(time, added_markers, int(num_frames), added_markers / time))
+
     return camera_accumulators, top_down_accumulators
 
 def get_generate_heatmaps_function(with_postprocessing: bool):
     @timed
     def generate_heatmaps(app_settings:ApplicationSettings, datasets):
-
         def transform_and_save(dataset_name, view_type, algorithm_name, accumulator):
             def transform_accumulator_to_heatmap(accumulator):
                 heatmap = transformations.logarithmic(accumulator)
@@ -127,7 +136,6 @@ def get_generate_heatmaps_function(with_postprocessing: bool):
 
             def save_heatmap(dataset_name, view_type, algorithm_name, image):
                 file_name = "{}_{}_{}{}.png".format(dataset_name, view_type, algorithm_name, "_FILTERED" if with_postprocessing else "")
-                # file_name = f"{dataset_name}_{view_type}_{algorithm_name}.png"
                 heatmaps_folder = file_utils.join_folders([app_settings.output_folder(), "gray_heatmaps"])
                 file_utils.make_dirs(heatmaps_folder)
 
@@ -148,7 +156,6 @@ def get_generate_heatmaps_function(with_postprocessing: bool):
             camera_accumulator_annotation = camera_accumulators[AccumulatorType.ANNOTATION]
             camera_accumulator_detections = camera_accumulators[AccumulatorType.DETECTIONS]
 
-
             top_down_accumulator_annotation = top_down_accumulators[AccumulatorType.ANNOTATION]
             top_down_accumulator_detections = top_down_accumulators[AccumulatorType.DETECTIONS]
 
@@ -164,5 +171,6 @@ def get_generate_heatmaps_function(with_postprocessing: bool):
 
                 transform_and_save(dataset_name, "camera", algorithm_type, camera_accumulator_detection)
                 transform_and_save(dataset_name, "topdown", algorithm_type, top_down_accumulator_detection)
+
 
     return generate_heatmaps

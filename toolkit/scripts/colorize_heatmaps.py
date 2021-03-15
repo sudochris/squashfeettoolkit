@@ -69,21 +69,6 @@ def get_colorize_heatmaps_function(with_postprocessing: bool):
             a1f1_td = cv.resize(get_td_heatmap_for(AlgorithmType.A1F1_OPENPOSE_COCO), new_size)
             a1f2_td = cv.resize(get_td_heatmap_for(AlgorithmType.A1F2_OPENPOSE_MPI), new_size)
             a2_td = cv.resize(get_td_heatmap_for(AlgorithmType.A2_POSENET), new_size)
-            color = (255, 0, 255)
-
-            # cv.putText(gt_cam_overlayed, "Annotation", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a0, "A0", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a1f0, "A1F0", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a1f1, "A1F1", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a1f2, "A1F2", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a2, "A2", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-
-            # cv.putText(gt_td_heatmap_color, "Annotation", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a0_td, "A0", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a1f0_td, "A1F0", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a1f1_td, "A1F1", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a1f2_td, "A1F2", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
-            # cv.putText(a2_td, "A2", (20, 64), cv.FONT_HERSHEY_SIMPLEX, 2.0,color, 4)
 
             overlay_result = cv.vconcat([cv.hconcat([gt_cam_overlayed, gt_td_heatmap_color, a1f0, a1f0_td]),
                                          cv.hconcat([a0,               a0_td,               a1f1, a1f1_td]),
@@ -106,25 +91,28 @@ def get_colorize_heatmaps_function(with_postprocessing: bool):
                 cv.line(img, w2i(6.4, 2.61), w2i(4.8, 2.61), (255, 255, 255), 2, cv.LINE_AA)
                 cv.line(img, w2i(4.8, 2.61), w2i(4.8, 4.26), (255, 255, 255), 2, cv.LINE_AA)
 
-            # overlay_lines(gt_td_heatmap_color)
-            # overlay_lines(a0_td)
-            # overlay_lines(a1f0_td)
-            # overlay_lines(a1f1_td)
-            # overlay_lines(a1f2_td)
-            # overlay_lines(a2_td)
+            overlay_lines(gt_td_heatmap_color)
+            overlay_lines(a0_td)
+            overlay_lines(a1f0_td)
+            overlay_lines(a1f1_td)
+            overlay_lines(a1f2_td)
+            overlay_lines(a2_td)
 
-            # cv.imwrite(f"{dataset_name[:2]}_GT_CAM.png", gt_cam_overlayed)
-            # cv.imwrite(f"{dataset_name[:2]}_GT_TD.png", gt_td_heatmap_color)
-            # cv.imwrite(f"{dataset_name[:2]}_A1F0_CAM.png", a1f0)
-            # cv.imwrite(f"{dataset_name[:2]}_A1F0_TD.png", a1f0_td)
-            # cv.imwrite(f"{dataset_name[:2]}_A0_CAM.png", a0)
-            # cv.imwrite(f"{dataset_name[:2]}_A0_TD.png", a0_td)
-            # cv.imwrite(f"{dataset_name[:2]}_A1F1_CAM.png", a1f1)
-            # cv.imwrite(f"{dataset_name[:2]}_A1F1_TD.png", a1f1_td)
-            # cv.imwrite(f"{dataset_name[:2]}_A2_CAM.png", a2)
-            # cv.imwrite(f"{dataset_name[:2]}_A2_TD.png", a2_td)
-            # cv.imwrite(f"{dataset_name[:2]}_A1F2_CAM.png", a1f2)
-            # cv.imwrite(f"{dataset_name[:2]}_A1F2_TD.png", a1f2_td)
+            image_map = {
+                "_GT_CAM": gt_cam_overlayed, "_GT_TD": gt_td_heatmap_color,
+                "_A0_CAM": a0, "_A0_TD": a0_td,
+                "_A1F0_CAM": a1f0, "_A1F0_CAM_TD": a1f0_td,
+                "_A1F1_CAM": a1f1, "_A1F1_CAM_TD": a1f1_td,
+                "_A1F2_CAM": a1f2, "_A1F2_CAM_TD": a1f2_td,
+                "_A2_CAM": a2, "_A2_TD": a2_td
+            }
+
+            for suffix, image in image_map.items():
+                overlayed_heatmaps_folder = file_utils.join_folders([app_settings.output_folder(), "overlayed_heatmaps"])
+                file_utils.make_dirs(overlayed_heatmaps_folder)
+                output_filename = "{}{}{}.png".format(dataset_name[:2], suffix, "_FILTERED" if with_postprocessing else "")
+                full_output_file = file_utils.join_folders([overlayed_heatmaps_folder, output_filename])
+                cv.imwrite(full_output_file, image)
 
             output_filename = "{}{}_colorized.png".format(dataset_name, "_FILTERED" if with_postprocessing else "")
             full_output_file = file_utils.join_folders([color_heatmaps_folder, output_filename])

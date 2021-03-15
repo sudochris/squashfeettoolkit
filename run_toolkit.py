@@ -59,10 +59,10 @@ if __name__ == '__main__':
     call_script("colorize_heatmaps", get_colorize_heatmaps_function(True))    # h.2) Colorize Heatmaps with
                                                                               # domain specific post processing
 
-    # call_script("generate_heatmaps_similarity", generate_heatmaps_similarity) # i) Generate similarity
-    # call_script("quantized_heatmaps", quantized_heatmaps)                     # j) Quantized Heatmap
+    call_script("generate_heatmaps_similarity", generate_heatmaps_similarity) # i) Generate similarity
+    call_script("quantized_heatmaps", quantized_heatmaps)                     # j) Quantized Heatmap
 
-    # call_script("render_pose_figure", render_pose_figure)                     # k) Render COCO model for a single frame (Fig. 1)
+    call_script("render_pose_figure", render_pose_figure)                     # k) Render COCO model for a single frame (Fig. 1)
 
     logger.info(f"Done. Check '{app_settings.output_folder()}' and results folders.")
 
