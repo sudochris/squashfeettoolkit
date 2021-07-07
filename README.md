@@ -47,9 +47,18 @@ This application provides a toolkit and scripts used in "Evaluation of pre-train
 ### Citation
 Please cite in your publications if it helps your research:
     
-    TBA: BibTeX Entry  
-
-TBA: [link to paper]()
+    @Article{Brumann2021,
+        AUTHOR         = {Brumann, Christopher and Kukuk, Markus and Reinsberger, Claus},
+        TITLE          = {Evaluation of Open-Source and Pre-Trained Deep Convolutional Neural Networks Suitable for Player Detection and Motion Analysis in Squash},
+        JOURNAL        = {Sensors},
+        VOLUME         = {21},
+        YEAR           = {2021},
+        NUMBER         = {13},
+        ARTICLE-NUMBER = {4550},
+        URL            = {https://www.mdpi.com/1424-8220/21/13/4550},
+        ISSN           = {1424-8220},
+        DOI            = {10.3390/s21134550}
+    }
 
 ### License
 This program is free software: you can redistribute it and/or modify
